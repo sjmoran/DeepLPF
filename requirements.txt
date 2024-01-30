@@ -1,6 +1,6 @@
 numpy==1.22.0
 scipy==1.10.0
-torch==1.7.1
+torch==1.13.1
 scikit_image==0.18.1
 torchvision==0.8.2
 matplotlib==3.3.2
