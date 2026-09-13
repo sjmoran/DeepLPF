@@ -40,7 +40,8 @@ C** as the **target**.
 
 1. In **Collections**, select `InputAsShotZeroed`. This is the rendering to use:
    exports from it reproduce this repo's bundled reference inputs exactly
-   (`mean|Δ| = 0.00` on 9 of the 10 reference images), and it is the collection
+   (`mean|Δ| = 0.00` on 8 of the 10 reference images, the exceptions being
+   `a4514` and `a4783` at around 9-10/255), and it is the collection
    named by the [FiveK-with-Lightroom guide](https://github.com/yuanming-hu/exposure/wiki/Preparing-data-for-the-MIT-Adobe-FiveK-Dataset-with-Lightroom).
    Note that DPE's own README does not state which input collection it used, so
    this is established by matching the reference images rather than by citation.
@@ -150,10 +151,15 @@ python main.py \
 
 ## Notes on faithfulness
 
-- The pretrained `adobe_dpe` checkpoint reproduces its 2020 per-image PSNR on
-  the bundled examples under the current code (see `tests/test_replication.py`).
-  Running it over your full prepared test split is the Tier-2 check that the
-  end-to-end pipeline matches the paper's 23.90 dB / 0.911 SSIM.
+- The pretrained `adobe_dpe` checkpoint gets close to, but does not exactly
+  reproduce, the 2020 per-image PSNRs recorded in the bundled example
+  filenames. Re-running the five `TEST_425` examples on CPU under the current
+  code gives 35.84 / 19.16 / 29.32 / 26.83 / 21.87 dB against filename claims
+  of 34.60 / 18.94 / 28.00 / 29.83 / 24.23 - agreeing within about 1.3 dB on
+  three and differing by 3.0 dB on `a4742` and 2.4 dB on `a4774`. Treat the
+  filenames as a 2020 record, not as a target to hit. Running the checkpoint
+  over your full prepared test split is the Tier-2 check that the end-to-end
+  pipeline matches the paper's 23.90 dB / 0.911 SSIM.
 - Results can drift slightly from the 2020 paper for two reasons independent of
   your data: the best-guess splits above, and PyTorch version differences
   (the paper used 1.7.1). Both are usually small.
