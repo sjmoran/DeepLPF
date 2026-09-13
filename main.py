@@ -62,7 +62,7 @@ def main():
 
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     log_dirpath = "./log_" + timestamp
-    os.mkdir(log_dirpath)
+    os.makedirs(log_dirpath, exist_ok=True)
 
     handlers = [logging.FileHandler(
         log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]

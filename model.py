@@ -23,7 +23,8 @@ Code-to-paper map (section / equation numbers refer to the arXiv version):
 * ``CubicFilter``               polynomial ("cubic-20") filter, Sec. 3.2.4, Eq. 6 -> Y2
 * ``GraduatedFilter``           graduated filter, Sec. 3.2.2, Eqs. 1-3, fused per Eq. 7 -> s_g
 * ``EllipticalFilter``          elliptical filter, Sec. 3.2.3, Eq. 4, fused per Eq. 7 -> s_e
-* ``DeepLPFParameterPrediction`` fusion S = s_g + s_e, Y3 = S * Y2, Y = Y3 + Y1, Sec. 3.1
+* ``DeepLPFParameterPrediction`` fusion S = 1 + (s_g - 1) + (s_e - 1), Y3 = S * Y2,
+                                Y = Y3 + Y1, Sec. 3.1
 * ``DeepLPFLoss``               training loss, Sec. 3.4, Eq. 8
 
 The filters live in :mod:`filters`, the conv blocks they are built from in
@@ -135,9 +136,11 @@ class DeepLPFParameterPrediction(nn.Module):
     feature map (whose first three channels are the backbone-enhanced image
     ``Y1``), it runs the single-stream cubic (polynomial) filter to get ``Y2``,
     then the two-stream graduated and elliptical filters on ``Y2`` to get the
-    scaling maps ``s_g`` and ``s_e``, and fuses them as
+    scaling maps ``s_g`` and ``s_e``, and fuses them by their deviation from
+    neutral, so a filter left at 1 contributes nothing:
 
-        ``S = s_g + s_e``,  ``Y3 = S * Y2``,  ``Y = Y3 + Y1``  (global skip).
+        ``S = 1 + (s_g - 1) + (s_e - 1)``,  ``Y3 = S * Y2``,
+        ``Y = Y3 + Y1``  (global skip).
 
     Every intermediate is clamped to a valid range ([0, 1] for images,
     [0, 2] for scaling maps).

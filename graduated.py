@@ -108,7 +108,6 @@ class GraduatedFilter(nn.Module):
         # and selected per image with torch.where; the clamp bounds (which depend
         # only on factor >= 1) are likewise applied element-wise.
         f = factor
-        inv = (invert == 1)
         fac_ge1 = (factor >= 1)
 
         # Every branch has the form  base + (A / d1) * top_line + (B / d2) * top_line
@@ -131,19 +130,17 @@ class GraduatedFilter(nn.Module):
         branch_inv = ramp(f, A_inv, B_inv)
         branch_non = ramp(1, A_non, B_non)
 
-        if True:
-            # A torch.where CONDITION is not differentiable, so selecting on
-            # `inv` severs g_inv from the loss - a second cut, one line after
-            # the one the `ste` fix repairs. Even with a working straight-through
-            # estimator the inversion indicators receive no gradient.
-            #
-            # Blend the two branches with the binarised indicator instead. The
-            # forward value is unchanged, because `invert` is exactly 0 or 1, but
-            # now the STE's gradient reaches g_inv. Requires `ste` to be on;
-            # without it torch.sign contributes its zero gradient and this is
-            # merely a slower way of writing the same select.
-            w = invert.to(branch_inv.dtype)
-            mask_scale = w * branch_inv + (1.0 - w) * branch_non
+        # A torch.where CONDITION is not differentiable, so selecting on
+        # `invert == 1` severs g_inv from the loss - a second cut, one line
+        # after the one the `ste` fix repairs. Even with a working
+        # straight-through estimator the inversion indicators receive no
+        # gradient.
+        #
+        # Blend the two branches with the binarised indicator instead. The
+        # forward value is unchanged, because `invert` is exactly 0 or 1, but
+        # now the STE's gradient reaches g_inv.
+        w = invert.to(branch_inv.dtype)
+        mask_scale = w * branch_inv + (1.0 - w) * branch_non
 
         # factor >= 1 branches clamp to [1, max_scale]; factor < 1 branches to [0, 1].
         lower = torch.where(fac_ge1, torch.ones_like(f), torch.zeros_like(f))

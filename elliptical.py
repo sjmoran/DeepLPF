@@ -129,13 +129,6 @@ class EllipticalFilter(nn.Module):
 
         """
 
-        # The two eps parameters are used to avoid numerical issues in the learning
-        eps2 = 1e-7
-        eps1 = 1e-10
-
-        # max_scale is the maximum an ellipse can scale the image R,G,B values by
-        max_scale = 2
-
         feat_elliptical = torch.cat((feat, img), 1)
         feat_elliptical = self.upsample(feat_elliptical)
         return self.mask_from_input(feat_elliptical, img)
