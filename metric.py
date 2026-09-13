@@ -137,7 +137,7 @@ class Evaluator():
 
                         plt.imsave(out_dirpath + "/" + name[0].split(".")[0] + "_" + self.split_name.upper() + "_" + str(epoch + 1) + "_" + str(
                             examples) + "_PSNR_" + str("{0:.3f}".format(psnr_example)) + "_SSIM_" + str(
-                            "{0:.3f}".format(ssim_example)) + ".jpg",
+                            "{0:.3f}".format(ssim_example)) + ".png",
                             ImageProcessing.swapimdims_3HW_HW3(net_output_img_example))
 
         psnr_avg = psnr_avg / num_batches

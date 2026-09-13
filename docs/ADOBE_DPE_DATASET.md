@@ -39,12 +39,14 @@ C** as the **target**.
 ## Step 2 — Export the input images
 
 1. In **Collections**, select `InputAsShotZeroed`. This is the rendering to use:
-   exports from it reproduce this repo's bundled reference inputs exactly
-   (`mean|Δ| = 0.00` on 8 of the 10 reference images, the exceptions being
-   `a4514` and `a4783` at around 9-10/255), and it is the collection
+   it is the one this repo's own export came from — the ten bundled reference
+   inputs in `adobe5k_dpe/deeplpf_example_test_input/` are ten of those files,
+   so an export from this collection matches them at `mean|Δ| = 0.00` — and it
+   is the collection
    named by the [FiveK-with-Lightroom guide](https://github.com/yuanming-hu/exposure/wiki/Preparing-data-for-the-MIT-Adobe-FiveK-Dataset-with-Lightroom).
    Note that DPE's own README does not state which input collection it used, so
-   this is established by matching the reference images rather than by citation.
+   this choice rests on that guide and on the `... minus 1.5` alternative being
+   demonstrably too dark, not on a citation from the paper.
 
    Earlier versions of this document recommended
    `Inputs/Input with Daylight WhiteBalance minus 1.5`. That is **wrong** — the
@@ -101,9 +103,10 @@ This runs the repo's own `Adobe5kDataLoader` over the `train`, `valid` and
 `test` splits in `adobe5k_dpe/` and reports how many ids were paired, which are
 missing, and the channel count of a sample. It also compares your exported
 inputs against the bundled example images
-(`adobe5k_dpe/deeplpf_example_test_input/`) — a small mean difference means your
-preprocessing is consistent with DeepLPF's; a large one means the input develop
-settings differ and Step 2 needs revisiting.
+(`adobe5k_dpe/deeplpf_example_test_input/`), which are ten images from this
+repo's own export — a small mean difference means your Lightroom renders them
+the way ours did; a large one means the input develop settings differ and Step 2
+needs revisiting.
 
 Expected split sizes are 2250 train / 2250 valid / 500 test. Note the splits in
 `adobe5k_dpe/*.txt` are a best guess: as `adobe5k_dpe/readme.txt` records, the
@@ -151,15 +154,15 @@ python main.py \
 
 ## Notes on faithfulness
 
-- The pretrained `adobe_dpe` checkpoint gets close to, but does not exactly
-  reproduce, the 2020 per-image PSNRs recorded in the bundled example
-  filenames. Re-running the five `TEST_425` examples on CPU under the current
-  code gives 35.84 / 19.16 / 29.32 / 26.83 / 21.87 dB against filename claims
-  of 34.60 / 18.94 / 28.00 / 29.83 / 24.23 - agreeing within about 1.3 dB on
-  three and differing by 3.0 dB on `a4742` and 2.4 dB on `a4774`. Treat the
-  filenames as a 2020 record, not as a target to hit. Running the checkpoint
-  over your full prepared test split is the Tier-2 check that the end-to-end
-  pipeline matches the paper's 23.90 dB / 0.911 SSIM.
+- The per-image PSNR/SSIM in the filenames under
+  `adobe5k_dpe/deeplpf_example_test_inference/` are from running the released
+  `adobe_dpe` checkpoint over the ten bundled examples under the current code:
+  25.833 dB / 0.915 SSIM averaged over the ten. They are a record of that run on
+  one machine, not a target — expect last-decimal drift on other hardware, and
+  note that ten images are far too few to say anything about the checkpoint's
+  accuracy. Running the checkpoint over your full prepared test split is the
+  Tier-2 check that the end-to-end pipeline matches the paper's 23.90 dB /
+  0.911 SSIM.
 - Results can drift slightly from the 2020 paper for two reasons independent of
   your data: the best-guess splits above, and PyTorch version differences
   (the paper used 1.7.1). Both are usually small.

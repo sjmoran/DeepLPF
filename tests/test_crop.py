@@ -44,7 +44,8 @@ def test_crop_size_gives_uniform_batches(tmp_path):
 
 
 def test_without_crop_mixed_sizes_do_not_collate(tmp_path):
-    # The bundled examples are mixed-size (512x341 and 512x343); batch>1 without
+    # The bundled examples are mixed-size (512x341, 512x343 and one portrait
+    # 341x512 - the export fixes the long edge, not both); batch>1 without
     # a crop must fail to collate, which is exactly why --crop_size exists.
     ds, _ = _tiny_dataset(tmp_path, crop_size=None)
     dl = torch.utils.data.DataLoader(ds, batch_size=3, shuffle=False, num_workers=0)

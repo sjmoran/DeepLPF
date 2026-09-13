@@ -6,12 +6,13 @@
 #This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the MIT License for more details.
 """The bundled example inputs are inputs, not copies of their targets.
 
-``adobe5k_dpe/deeplpf_example_test_input/a4774-_DGW0330.png`` shipped as a
+``adobe5k_dpe/deeplpf_example_test_input/a4774-_DGW0330.png`` once shipped as a
 byte-for-byte copy of its own Expert C target (the same file is still wrong in
 the published CURL release, so the mix-up predates this repo). Anything scored
-against it is meaningless: the "input" already is the answer. This catches the
-whole class - any example whose input and target are the same picture - rather
-than that one id.
+against it is meaningless: the "input" already is the answer. The bundled
+examples have since been regenerated from this repo's own export, but the test
+stays: it catches the whole class - any example whose input and target are the
+same picture - rather than that one id.
 """
 import glob
 import os
@@ -42,11 +43,9 @@ PAIRED = sorted(set(INPUTS) & set(TARGETS))
 @pytest.mark.parametrize('img_id', PAIRED)
 def test_example_input_differs_from_its_target(img_id):
     inp, tgt = _rgb(INPUTS[img_id]), _rgb(TARGETS[img_id])
-    if inp.shape != tgt.shape:
-        # Five of the extra examples ship at slightly different input/target
-        # sizes. That is a separate pre-existing wrinkle, and differing sizes
-        # already rule out the copy this test is looking for.
-        pytest.skip('%s: input and target differ in size' % img_id)
+    assert inp.shape == tgt.shape, (
+        '%s: input %s and target %s differ in size; both come from the same '
+        'export and must match' % (img_id, inp.shape, tgt.shape))
     # A retouch always moves some pixels; identical files mean one was copied
     # over the other. The real pairs sit at a mean absolute difference of 8-25.
     assert np.abs(inp - tgt).mean() > 1.0, (

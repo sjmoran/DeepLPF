@@ -20,8 +20,8 @@ the settings can't be got wrong.
 1. **File ▸ Plug-in Extras ▸ Export FiveK for DeepLPF…**
    (also under **Library ▸ Plug-in Extras** in the Library module).
 2. In the dialog, two dropdowns list every collection in the catalogue. Pick:
-   - **Input** → *InputAsShotZeroed* (this is the correct rendering; it
-     reproduces the bundled reference inputs exactly. Do **not** use *Input
+   - **Input** → *InputAsShotZeroed* (this is the correct rendering; it is the
+     one the bundled reference inputs came from. Do **not** use *Input
      with Daylight WhiteBalance minus 1.5* — it is −1.5 EV too dark and
      fails the verify step.)
    - **Expert-C target** → `Experts / C`

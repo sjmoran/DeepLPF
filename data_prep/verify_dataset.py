@@ -11,8 +11,10 @@ Runs the repo's own Adobe5kDataLoader over a prepared data directory for each
 split file and reports how many image ids were paired (input + output found),
 which are missing, and whether a sample loads as a 3-channel image. If the
 repo's bundled example images are available it also compares your exported
-inputs/targets against them, which is the definitive check that your Lightroom
-preprocessing matches the DeepLPF protocol.
+inputs against them. Those examples are themselves an export made with the
+recipe in docs/ADOBE_DPE_DATASET.md, so the comparison answers "does my
+Lightroom render these ten the way yours did" - a check on the develop
+settings, not evidence about the 2020 release.
 
 Expected layout of DATA_DIR (see docs/ADOBE_DPE_DATASET.md):
 
@@ -77,7 +79,11 @@ def sample_channels(data_dict):
 
 
 def compare_to_examples(data_dir):
-    """Compare user exports against the repo's bundled example inputs/targets."""
+    """Compare user exports against the repo's bundled example inputs.
+
+    The bundled examples were exported with this repo's own recipe, so a small
+    difference means your Lightroom develop settings agree with ours.
+    """
     ex_in = os.path.join(REPO, "adobe5k_dpe", "deeplpf_example_test_input")
     if not os.path.isdir(ex_in):
         return
@@ -87,7 +93,8 @@ def compare_to_examples(data_dir):
             examples.setdefault(fn.split("-")[0], fn)
     if not examples:
         return
-    print("\n== comparison against bundled example inputs (preprocessing sanity) ==")
+    print("\n== comparison against bundled example inputs (does your Lightroom "
+          "match ours?) ==")
     user_inputs = {}
     in_dir = os.path.join(data_dir, "input")
     if os.path.isdir(in_dir):

@@ -168,11 +168,17 @@ and `output/` sub-folders, then:
 ```bash
 python3 main.py \
   --training_img_dirpath=./adobe5k_dpe_data/ \
-  --train_img_list_path=./adobe5k_dpe/images_train.txt \
-  --valid_img_list_path=./adobe5k_dpe/images_valid.txt \
-  --test_img_list_path=./adobe5k_dpe/images_test.txt \
+  --train_img_list_path=./adobe5k_dpe/reconstructed_split/images_train.txt \
+  --valid_img_list_path=./adobe5k_dpe/reconstructed_split/images_valid.txt \
+  --test_img_list_path=./adobe5k_dpe/reconstructed_split/images_test.txt \
   --batch_size=1
 ```
+
+These are the reconstructed split, which is what the shipped checkpoint was
+trained on and what the 24.18 dB above is measured against. The original DPE
+lists are shipped too, in [`adobe5k_dpe/`](./adobe5k_dpe/); swap them in to
+train against the protocol the literature reports, but note that no such run
+has been done here, so this repository has no expected figure for it.
 
 `--batch_size=1` is the paper's setup; larger batches need `--crop_size`,
 because FiveK images vary in size. Evaluation always runs at batch size 1 so
@@ -212,8 +218,8 @@ Adobe's renderer to match the published data. Open
 | `InputAsShotZeroed` | `~/fivek/input` | network input |
 | `Experts / C` | `~/fivek/output` | target |
 
-The input collection matters. `InputAsShotZeroed` is the one that reproduces
-this repo's bundled reference inputs exactly; the `... minus 1.5` renderings
+The input collection matters. `InputAsShotZeroed` is the one this repo's own
+export used, and the one its bundled reference inputs come from; the `... minus 1.5` renderings
 apply a −1.5 EV exposure cut and give inputs roughly 1.6× too dark. Full
 walkthrough, including a Lightroom plug-in that does both exports:
 [docs/ADOBE_DPE_DATASET.md](./docs/ADOBE_DPE_DATASET.md).
@@ -248,26 +254,29 @@ wrong one is diagnosed rather than merely rejected, for example:
 
 `verify_dataset.py` is then the checkpoint for the whole stage. Expect 5000 pairs
 split 2250 train / 2250 valid / 498 test, fully paired, and `mean|Δ|` under 15
-against the bundled reference inputs. A large `mean|Δ|` means the wrong `Inputs`
-rendering was exported — re-export the inputs and run it again.
+against the bundled reference inputs — which are ten images from this repo's own
+export, so a small difference means your Lightroom renders them the way ours
+did. A large `mean|Δ|` means the wrong `Inputs` rendering was exported —
+re-export the inputs and run it again.
 
 **5. Train.**
 
 ```bash
 python3 main.py \
   --training_img_dirpath=./adobe5k_dpe_data/ \
-  --train_img_list_path=./adobe5k_dpe/images_train.txt \
-  --valid_img_list_path=./adobe5k_dpe/images_valid.txt \
-  --test_img_list_path=./adobe5k_dpe/images_test.txt \
+  --train_img_list_path=./adobe5k_dpe/reconstructed_split/images_train.txt \
+  --valid_img_list_path=./adobe5k_dpe/reconstructed_split/images_valid.txt \
+  --test_img_list_path=./adobe5k_dpe/reconstructed_split/images_test.txt \
   --batch_size=1
 ```
 
 Checkpoints are written whenever validation PSNR improves, into a timestamped
 `log_*` directory, with the metrics in the filename.
 
-**What to expect.** A 1000-epoch run reaches the low 24s in test PSNR on the
-reconstructed split. Numbers from the DPE lists belong to a different test set
-and are not comparable with that; see
+**What to expect.** A 1000-epoch run on these lists reaches the low 24s in test
+PSNR. Training instead against the DPE lists in
+[`adobe5k_dpe/`](./adobe5k_dpe/) gives a figure comparable with the literature,
+but on a different test set, so it is not comparable with the number above; see
 [docs/BENCHMARK_TABLE.md](./docs/BENCHMARK_TABLE.md).
 The fastest way to confirm your pipeline before committing to a full training
 run is the [enhance](#enhance-your-photos) command, which runs the
