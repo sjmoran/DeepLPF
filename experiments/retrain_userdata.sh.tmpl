@@ -1,0 +1,80 @@
+#!/bin/bash
+# EC2 user-data for a single DeepLPF training run on the reconstructed split.
+# Fetches code and data from S3, runs the test suite, trains, syncs checkpoints
+# back as it goes, and terminates on completion or at the hard cap.
+#
+# Placeholders are substituted by launch_retrain.sh.
+set -uo pipefail
+exec > >(tee -a /var/log/deeplpf-train.log) 2>&1
+echo "=== DeepLPF retrain start: $(date -u) ==="
+
+BUCKET="__BUCKET__"
+RUN="__RUN_NAME__"
+EPOCHS="__EPOCHS__"
+HARD_CAP_HOURS="__HARD_CAP__"
+S3_RUN="$BUCKET/runs/$RUN"
+
+# Shut down however we leave: completion, crash, or cap. Without this a run
+# that dies in the first minute bills until someone notices.
+finish() {
+    echo "=== finishing ($1): $(date -u) ==="
+    aws s3 cp /var/log/deeplpf-train.log "$S3_RUN/deeplpf-train.log" || true
+    aws s3 sync /opt/deeplpf/ "$S3_RUN/logs/" --exclude '*' --include 'log_*/*' || true
+    shutdown -h now
+}
+trap 'finish trap' EXIT
+# Independent of the trap: a hung process never reaches it, so a detached timer
+# holds the ceiling on spend.
+( sleep $((HARD_CAP_HOURS * 3600)); echo "hard cap reached"; shutdown -h now ) &
+
+cd /opt && mkdir -p deeplpf && cd deeplpf
+aws s3 cp "$BUCKET/deeplpf_code.tgz" . && tar xzf deeplpf_code.tgz
+# The dataset is uploaded in 200 MB parts: a flaky uplink costs one part on a
+# retry, not the whole 2.6 GB. Reassemble before extracting.
+aws s3 cp "$BUCKET/parts/" . --recursive
+cat curl_data.part* > curl_data.tgz && rm -f curl_data.part*
+tar xzf curl_data.tgz
+
+source /opt/pytorch/bin/activate 2>/dev/null || true
+# The AMI ships a CUDA build of torch, numpy and torchvision. Installing the
+# pinned versions from requirements.txt replaces that CUDA build with a generic
+# wheel and the GPU goes with it - requirements.txt says so in its own comment.
+# Install everything else, and let one unsatisfiable pin fail its own line
+# rather than aborting the whole install.
+grep -vE '^\s*(#|$)|^(torch|torchvision|numpy)\b' requirements.txt > /tmp/reqs.txt || true
+cat /tmp/reqs.txt
+while read -r pkg; do
+    [ -n "$pkg" ] && python3 -m pip install -q "$pkg" 2>&1 | tail -1
+done < /tmp/reqs.txt
+python3 -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"
+
+# The suite is CPU-only and takes about a minute. If what arrived is not what
+# passed locally, stop before spending GPU hours finding out.
+python3 -m pytest tests/ -q 2>&1 | tail -3
+if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+    echo "FATAL: test suite failed on the instance; not training"
+    finish tests-failed
+fi
+
+DATA=/opt/deeplpf/adobe5k_dpe_data
+SPLIT=/opt/deeplpf/adobe5k_dpe/reconstructed_split
+
+# Checkpoints are written on every validation improvement; push them up as they
+# appear so an interrupted run is not a lost one.
+( while true; do
+    sleep 600
+    aws s3 sync /opt/deeplpf/ "$S3_RUN/logs/" --exclude '*' --include 'log_*/*' --quiet || true
+  done ) &
+
+python3 main.py \
+    --training_img_dirpath="$DATA/" \
+    --train_img_list_path="$SPLIT/images_train.txt" \
+    --valid_img_list_path="$SPLIT/images_valid.txt" \
+    --test_img_list_path="$SPLIT/images_test.txt" \
+    --batch_size=1 \
+    --num_epoch="$EPOCHS" \
+    --seed=0 \
+    __EXTRA_FLAGS__
+
+echo "=== training returned $? ==="
+finish complete
