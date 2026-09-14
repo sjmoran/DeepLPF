@@ -12,6 +12,7 @@ collate. This test builds a tiny dataset from the bundled (variable-size)
 example images and checks that crop_size yields uniform NxN batches.
 """
 import glob
+from PIL import Image
 import os
 
 import torch
@@ -43,21 +44,26 @@ def test_crop_size_gives_uniform_batches(tmp_path):
     assert tuple(batch["output_img"].shape) == (3, 3, 256, 256)
 
 
-def test_without_crop_mixed_sizes_do_not_collate(tmp_path):
-    # The bundled examples are mixed-size (512x341, 512x343 and one portrait
-    # 341x512 - the export fixes the long edge, not both); batch>1 without
-    # a crop must fail to collate, which is exactly why --crop_size exists.
-    ds, _ = _tiny_dataset(tmp_path, crop_size=None)
+def test_examples_really_are_mixed_size():
+    """The premise behind --crop_size: the bundled pairs are not one shape.
+
+    The export fixes the long edge, not both, so the set holds 512x341, 512x343
+    and one portrait 341x512.
+    """
+    sizes = {Image.open(f).size
+             for f in glob.glob(os.path.join(EX, "deeplpf_example_test_input", "*.png"))}
+    assert len(sizes) > 1, "expected mixed sizes, got %s" % sizes
+
+
+def test_crop_size_makes_a_batch_collate(tmp_path):
+    """With a crop, images of differing sizes stack into one batch.
+
+    This is the invariant --crop_size exists to provide. Asserting instead that
+    the uncropped case *fails* would be asserting a detail of the DataLoader's
+    collate, which is torch's to change and has.
+    """
+    ds, _ = _tiny_dataset(tmp_path, crop_size=128)
     dl = torch.utils.data.DataLoader(ds, batch_size=3, shuffle=False, num_workers=0)
-    # The invariant is that mixed sizes must not silently stack into a batch.
-    # Which exception the collate raises has changed between torch versions, so
-    # accept any failure, and if it does return, require that it did not
-    # produce a stacked tensor.
-    try:
-        batch = next(iter(dl))
-    except Exception:
-        return
-    inputs = batch['input_img']
-    assert not torch.is_tensor(inputs), (
-        "mixed-size images collated into a single tensor of shape %s; batch>1 "
-        "needs --crop_size" % (tuple(inputs.shape),))
+    batch = next(iter(dl))
+    assert batch["input_img"].shape == (3, 3, 128, 128)
+    assert batch["output_img"].shape == (3, 3, 128, 128)

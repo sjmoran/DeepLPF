@@ -66,7 +66,9 @@ done < /tmp/reqs.txt
 
 # The suite is CPU-only and takes about a minute. If what arrived is not what
 # passed locally, stop before spending GPU hours finding out.
-"$PY" -m pytest tests/ -q 2>&1 | tail -3
+# Keep the whole failure, not three lines: a truncated assertion cost
+# several round trips to diagnose.
+"$PY" -m pytest tests/ -q --tb=short 2>&1 | tail -40
 if [ "${PIPESTATUS[0]}" -ne 0 ]; then
     echo "FATAL: test suite failed on the instance; not training"
     finish tests-failed
