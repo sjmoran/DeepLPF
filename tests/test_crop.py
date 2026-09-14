@@ -49,9 +49,15 @@ def test_without_crop_mixed_sizes_do_not_collate(tmp_path):
     # a crop must fail to collate, which is exactly why --crop_size exists.
     ds, _ = _tiny_dataset(tmp_path, crop_size=None)
     dl = torch.utils.data.DataLoader(ds, batch_size=3, shuffle=False, num_workers=0)
+    # The invariant is that mixed sizes must not silently stack into a batch.
+    # Which exception the collate raises has changed between torch versions, so
+    # accept any failure, and if it does return, require that it did not
+    # produce a stacked tensor.
     try:
-        next(iter(dl))
-        raised = False
-    except RuntimeError:
-        raised = True
-    assert raised, "expected mixed-size batch>1 to fail collation without crop_size"
+        batch = next(iter(dl))
+    except Exception:
+        return
+    inputs = batch['input_img']
+    assert not torch.is_tensor(inputs), (
+        "mixed-size images collated into a single tensor of shape %s; batch>1 "
+        "needs --crop_size" % (tuple(inputs.shape),))
