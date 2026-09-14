@@ -35,7 +35,19 @@ aws s3 cp "$BUCKET/parts/" . --recursive
 cat curl_data.part* > curl_data.tgz && rm -f curl_data.part*
 tar xzf curl_data.tgz
 
-source /opt/pytorch/bin/activate 2>/dev/null || true
+# The AMI ships torch in a virtualenv. Activate whichever one it has; a silent
+# failure here leaves the system python in place, which has no torch at all.
+for venv in /opt/pytorch /opt/conda/envs/pytorch /usr/local/pytorch; do
+    if [ -f "$venv/bin/activate" ]; then
+        . "$venv/bin/activate"
+        echo "activated $venv"
+        break
+    fi
+done
+python3 -c "import torch" 2>/dev/null || {
+    echo "FATAL: no torch on this image after activation; PATH=$PATH"
+    finish no-torch
+}
 # The AMI ships a CUDA build of torch, numpy and torchvision. Installing the
 # pinned versions from requirements.txt replaces that CUDA build with a generic
 # wheel and the GPU goes with it - requirements.txt says so in its own comment.
