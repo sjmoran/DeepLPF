@@ -35,19 +35,23 @@ aws s3 cp "$BUCKET/parts/" . --recursive
 cat curl_data.part* > curl_data.tgz && rm -f curl_data.part*
 tar xzf curl_data.tgz
 
-# The AMI ships torch in a virtualenv. Activate whichever one it has; a silent
-# failure here leaves the system python in place, which has no torch at all.
-for venv in /opt/pytorch /opt/conda/envs/pytorch /usr/local/pytorch; do
-    if [ -f "$venv/bin/activate" ]; then
-        . "$venv/bin/activate"
-        echo "activated $venv"
-        break
-    fi
+# Find the interpreter that already has a CUDA build of torch. The AMI keeps it
+# in a system dist-packages directory that "python3" does not necessarily
+# resolve to, and installing torch ourselves would replace the CUDA build with
+# a generic wheel.
+PY=""
+for cand in /opt/pytorch/bin/python /opt/conda/envs/pytorch/bin/python \
+            python3.12 python3.11 python3.10 python3 python; do
+    command -v "$cand" >/dev/null 2>&1 || [ -x "$cand" ] || continue
+    if "$cand" -c "import torch" >/dev/null 2>&1; then PY="$cand"; break; fi
 done
-python3 -c "import torch" 2>/dev/null || {
-    echo "FATAL: no torch on this image after activation; PATH=$PATH"
-    finish no-torch
-}
+if [ -z "$PY" ]; then
+    echo "no preinstalled torch found; installing it"
+    PY=python3
+    "$PY" -m pip install -q torch torchvision || { echo "FATAL: cannot install torch"; finish no-torch; }
+fi
+echo "using interpreter: $PY ($($PY --version 2>&1))"
+"$PY" -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())"
 # The AMI ships a CUDA build of torch, numpy and torchvision. Installing the
 # pinned versions from requirements.txt replaces that CUDA build with a generic
 # wheel and the GPU goes with it - requirements.txt says so in its own comment.
@@ -56,13 +60,13 @@ python3 -c "import torch" 2>/dev/null || {
 grep -vE '^\s*(#|$)|^(torch|torchvision|numpy)\b' requirements.txt > /tmp/reqs.txt || true
 cat /tmp/reqs.txt
 while read -r pkg; do
-    [ -n "$pkg" ] && python3 -m pip install -q "$pkg" 2>&1 | tail -1
+    [ -n "$pkg" ] && "$PY" -m pip install -q "$pkg" 2>&1 | tail -1
 done < /tmp/reqs.txt
-python3 -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"
+"$PY" -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"
 
 # The suite is CPU-only and takes about a minute. If what arrived is not what
 # passed locally, stop before spending GPU hours finding out.
-python3 -m pytest tests/ -q 2>&1 | tail -3
+"$PY" -m pytest tests/ -q 2>&1 | tail -3
 if [ "${PIPESTATUS[0]}" -ne 0 ]; then
     echo "FATAL: test suite failed on the instance; not training"
     finish tests-failed
@@ -78,7 +82,7 @@ SPLIT=/opt/deeplpf/adobe5k_dpe/reconstructed_split
     aws s3 sync /opt/deeplpf/ "$S3_RUN/logs/" --exclude '*' --include 'log_*/*' --quiet || true
   done ) &
 
-python3 main.py \
+"$PY" main.py \
     --training_img_dirpath="$DATA/" \
     --train_img_list_path="$SPLIT/images_train.txt" \
     --valid_img_list_path="$SPLIT/images_valid.txt" \
