@@ -172,7 +172,6 @@ class GraduatedFilter(nn.Module):
         :rtype: Tensor
 
         """
-        eps = 1e-10
 
         # Normalised pixel coordinates (see CubicFilter.get_cubic_mask)
         x_axis, y_axis = _coord_grids(img.shape[2], img.shape[3], img.device)
@@ -237,7 +236,7 @@ class GraduatedFilter(nn.Module):
         # o2 is predicted as a fraction of o1 so the ordering o2 <= o1 holds by
         # construction. Every output is now on an unconditional differentiable
         # path and both clamps are gone.
-        intercept = self.tanh01(G[:, 6:9]) + eps
+        intercept = self.tanh01(G[:, 6:9])
         y_axis_dist = self.tanh01(G[:, 9:12])
         y_axis_dist_lo = y_axis_dist * self.tanh01(G[:, 12:15])
 
