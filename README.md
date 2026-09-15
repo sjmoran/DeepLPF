@@ -135,6 +135,7 @@ and argued with rather than only looked at. The
 | Model | Split | PSNR | SSIM |
 |---|---|---|---|
 | this repository, 1000 epochs | reconstructed | 24.18 dB | 0.917 |
+| this repository, 774 epochs | DPE | 23.83 dB | 0.916 |
 | DeepLPF as published (NamedCurves Tab. 1) | DPE | 23.93 dB | 0.903 |
 
 The weights shipped in this repo score higher than the paper. FiveK has at
@@ -145,7 +146,13 @@ anything.
 ## Pre-trained model
 
 `pretrained_models/adobe_dpe/` holds the model trained by this code for 1000
-epochs, and it is what `deeplpf enhance` loads by default.
+epochs on the reconstructed split, and it is what `deeplpf enhance` loads by
+default.
+
+`pretrained_models/adobe_dpe_recovered_split/` holds a second checkpoint,
+trained on the original DPE split lists shipped in
+[`adobe5k_dpe/`](./adobe5k_dpe/), at the epoch where validation PSNR peaked
+(774). Same architecture and training command, different split.
 
 Two capabilities are off by default. Both change the architecture, so a
 checkpoint trained with either needs the same flag to load it:
@@ -177,8 +184,8 @@ python3 main.py \
 These are the reconstructed split, which is what the shipped checkpoint was
 trained on and what the 24.18 dB above is measured against. The original DPE
 lists are shipped too, in [`adobe5k_dpe/`](./adobe5k_dpe/); swap them in to
-train against the protocol the literature reports, but note that no such run
-has been done here, so this repository has no expected figure for it.
+train against the protocol the literature reports — `pretrained_models/adobe_dpe_recovered_split/`
+is the result of doing that, at 23.83 dB / 0.916 SSIM.
 
 `--batch_size=1` is the paper's setup; larger batches need `--crop_size`,
 because FiveK images vary in size. Evaluation always runs at batch size 1 so
